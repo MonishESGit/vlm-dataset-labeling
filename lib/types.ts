@@ -111,10 +111,13 @@ export const validateImageLabel = (label: ImageLabel): ValidationResult => {
     }
   }
   
-  // If OBSTRUCTED_VIEW, obstruction_type is required
+  // If OBSTRUCTED_VIEW, obstruction_type and Step 1B are required
   if (label.step_1a_visibility === "OBSTRUCTED_VIEW") {
     if (!label.obstruction_type || label.obstruction_type === "NONE") {
       missingFields.push("Obstruction Type");
+    }
+    if (!label.step_1b_routing) {
+      missingFields.push("Step 1B Routing");
     }
   }
   
@@ -133,6 +136,7 @@ export const validateImageLabel = (label: ImageLabel): ValidationResult => {
   // Evidence type is required when Step 1B is shown
   const showStep1B = 
     label.step_1a_visibility === "STOREFRONT_VISIBLE" ||
+    label.step_1a_visibility === "OBSTRUCTED_VIEW" ||
     (label.step_1a_visibility === "NOT_A_STOREFRONT" && label.gas_station_override === "YES");
   
   if (showStep1B && label.evidence_type.length === 0) {
