@@ -77,6 +77,7 @@ export function AnnotationForm({ label, onUpdate }: AnnotationFormProps) {
   const showObstructionType = label.step_1a_visibility === "OBSTRUCTED_VIEW";
   const showStep1B = 
     label.step_1a_visibility === "STOREFRONT_VISIBLE" ||
+    label.step_1a_visibility === "OBSTRUCTED_VIEW" ||
     (label.step_1a_visibility === "NOT_A_STOREFRONT" && label.gas_station_override === "YES");
   const showOutsideSchemaGuess = label.step_1b_routing === "OTHER_OUTSIDE_SCHEMA";
 
@@ -124,7 +125,6 @@ export function AnnotationForm({ label, onUpdate }: AnnotationFormProps) {
                 updates.obstruction_type = "NONE";
               }
               if (value === "OBSTRUCTED_VIEW") {
-                updates.step_1b_routing = null;
                 updates.obstruction_type = null;
               }
               onUpdate(updates);
@@ -149,7 +149,6 @@ export function AnnotationForm({ label, onUpdate }: AnnotationFormProps) {
                     updates.obstruction_type = "NONE";
                   }
                   if (option.value === "OBSTRUCTED_VIEW") {
-                    updates.step_1b_routing = null;
                     updates.obstruction_type = null;
                   }
                   onUpdate(updates);
