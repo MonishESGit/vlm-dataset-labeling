@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { ChevronLeft, ChevronRight, RotateCcw, Keyboard, AlertTriangle } from "lucide-react";
+import { ChevronLeft, ChevronRight, RotateCcw, Keyboard, AlertTriangle, FolderSync } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -23,17 +23,17 @@ import { AnnotationForm } from "@/components/annotation-form";
 import { ExportDialog } from "@/components/export-dialog";
 import { FolderInput } from "@/components/folder-input";
 import { useLabelStore } from "@/hooks/use-label-store";
-import { mockAddresses } from "@/lib/mock-data";
-import { validateImageLabel, createEmptyLabel, type Address } from "@/lib/types";
+import { validateImageLabel, createEmptyLabel, type AddressData } from "@/lib/types";
 
 export default function LabelingPage() {
   const [folderUrl, setFolderUrl] = useState<string | null>(null);
-  const [addresses, setAddresses] = useState<Address[]>([]);
+  const [addresses, setAddresses] = useState<AddressData[]>([]);
   const [isLoadingFolder, setIsLoadingFolder] = useState(false);
   const [folderError, setFolderError] = useState<string | null>(null);
   const [currentAddressIndex, setCurrentAddressIndex] = useState(0);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
-  const { labels, isLoaded, lastSaved, getLabel, updateLabel, resetLabel, resetAddressLabels } = useLabelStore();
+  const [showChangeFolderDialog, setShowChangeFolderDialog] = useState(false);
+  const { labels, isLoaded, lastSaved, getLabel, updateLabel, resetLabel, resetAddressLabels, clearAllLabels } = useLabelStore();
 
   // Derived values (not hooks, so safe after early returns)
   const currentAddress = addresses[currentAddressIndex];
@@ -130,19 +130,39 @@ export default function LabelingPage() {
     setFolderError(null);
     
     try {
-      // For now, we'll use mock data since Google Drive API integration 
-      // would require OAuth setup. In production, this would fetch from the API.
-      // Simulating a network request
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
+      const response = await fetch("/api/drive", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ folderUrl: url }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Failed to load folder");
+      }
+
       setFolderUrl(url);
-      setAddresses(mockAddresses);
-    } catch {
-      setFolderError("Failed to load images from the folder. Please check the URL and try again.");
+      setAddresses(data.addresses);
+      setCurrentAddressIndex(0);
+      setCurrentImageIndex(0);
+    } catch (err) {
+      setFolderError(err instanceof Error ? err.message : "Failed to load images from the folder. Please check the URL and try again.");
     } finally {
       setIsLoadingFolder(false);
     }
   }, []);
+
+  // Handle changing to a new folder (discard all changes)
+  const handleChangeFolder = useCallback(() => {
+    clearAllLabels();
+    setFolderUrl(null);
+    setAddresses([]);
+    setCurrentAddressIndex(0);
+    setCurrentImageIndex(0);
+    setFolderError(null);
+    setShowChangeFolderDialog(false);
+  }, [clearAllLabels]);
 
   // Keyboard shortcuts - MUST be before any conditional returns
   useEffect(() => {
@@ -316,6 +336,29 @@ export default function LabelingPage() {
                 </AlertDialog>
 
                 <ExportDialog addresses={addresses} labels={labels} />
+
+                <AlertDialog open={showChangeFolderDialog} onOpenChange={setShowChangeFolderDialog}>
+                  <AlertDialogTrigger asChild>
+                    <Button variant="outline" size="sm" className="gap-1">
+                      <FolderSync className="h-3 w-3" />
+                      Change Folder
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Change Google Drive Folder?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This will discard ALL your current labeling progress and start fresh with a new folder. This action cannot be undone.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel>Cancel</AlertDialogCancel>
+                      <AlertDialogAction onClick={handleChangeFolder} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                        Discard & Change Folder
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
               </div>
             </div>
 
